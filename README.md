@@ -1,7 +1,10 @@
 import mysql.connector
-import os
+import streamlit as st
 from dotenv import load_dotenv
+import pandas as pd
+import os
 
+# Cargar variables de entorno desde el archivo .env
 load_dotenv()
 
 class ClaseLocalidad:
@@ -67,5 +70,6 @@ class Direccion:
         return (f"Direccion(calle='{self.calle}', numero={self.numero}, "
                 f"departamento='{self.departamento}', piso={self.piso}, "
                 f"localidad={repr(self.localidad)}, latitud={self.latitud}, "
-                f"longitud={self.longitud})"
+                f"longitud={self.longitud})")
+
                 
