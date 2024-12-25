@@ -4,12 +4,12 @@ from dotenv import load_dotenv
 import pandas as pd
 import os
 
-# Cargar variables de entorno desde el archivo .env
+from localidades import ClaseLocalidad
+
 load_dotenv()
 
-class ClaseLocalidad:
+class ClaseDireccion:
     def __init__(self) -> None:
-        # Establecer la conexión con la base de datos
         self.connection = mysql.connector.connect(
             host=os.getenv('DB_HOST'),
             user=os.getenv('DB_USER'),
@@ -21,55 +21,82 @@ class ClaseLocalidad:
         self.cursor = self.connection.cursor(dictionary=True)
 
     def obtener_datos(self):
-        """Obtiene todos los datos de la tabla 'localidad'."""
-        self.cursor.execute('SELECT * FROM localidad')
-        return self.cursor.fetchall()
+        self.cursor.execute('SELECT * FROM direccion')
+        result = self.cursor.fetchall()
+        return result
+    
+    def ingresar_datos(self, calle, numero, piso, departamento, localidad, latitud, longitud):
+        self.cursor.execute('INSERT INTO direccion (calle_direccion, numero_direccion, piso_direccion, departamento_direccion, localidad_direccion, latitud_direccion, longitud_direccion) VALUES(%s,%s,%s,%s,%s,%s,%s)', (calle, numero, piso, departamento, localidad, latitud, longitud))
+        self.connection.commit()
+    
+    def obtener_id_direccion(self, calle, numero):
+        self.cursor.execute('SELECT id_direccion FROM direccion WHERE calle_direccion = %s AND numero_direccion = %s', (calle, numero))
+        id = self.cursor.fetchall()
+        return id
 
-class Localidad:
-    def __init__(self, nombre_localidad: str, provincia: str):
-        self.nombre_localidad = nombre_localidad
-        self.provincia = provincia
+    def actualizar_datos(self, id, calle, numero, piso, departamento, localidad, latitud, longitud):
+        consulta_actualizar = 'UPDATE direccion SET calle_direccion = %s, numero_direccion = %s, piso_direccion = %s, departamento_direccion = %s , localidad_direccion = %s, latitud_direccion = %s, longitud_direccion = %s WHERE id_direccion = %s '
+        self.cursor.execute(consulta_actualizar, (calle, numero, piso, departamento, localidad, latitud, longitud, id))
+        self.connection.commit()
 
-    def __str__(self) -> str:
-        return f"{self.nombre_localidad}, {self.provincia}"
-
-    def __repr__(self) -> str:
-        return f"Localidad(nombre_localidad='{self.nombre_localidad}', provincia='{self.provincia}')"
-
-class Direccion:
-    def __init__(self, calle: str, numero: int, departamento: str = None, 
-                 piso: int = None, localidad: Localidad = None,
-                 latitud: float = None, longitud: float = None):
-        self.calle = calle
-        self.numero = numero
-        self.departamento = departamento
-        self.piso = piso
-        self.localidad = localidad
-        self.latitud = latitud
-        self.longitud = longitud
-
-    def direccion_completa(self) -> str:
-        """Genera la dirección completa como cadena."""
-        direccion = f"{self.calle} {self.numero}"
-        if self.piso is not None:
-            direccion += f", Piso {self.piso}"
-        if self.departamento is not None:
-            direccion += f", Depto {self.departamento}"
-        if self.localidad is not None:
-            direccion += f", {str(self.localidad)}"
-        return direccion
-
-    def tiene_coordenadas(self) -> bool:
-        """Indica si la dirección tiene coordenadas de latitud y longitud."""
-        return self.latitud is not None and self.longitud is not None
-
-    def __str__(self) -> str:
-        return self.direccion_completa()
-
-    def __repr__(self) -> str:
-        return (f"Direccion(calle='{self.calle}', numero={self.numero}, "
-                f"departamento='{self.departamento}', piso={self.piso}, "
-                f"localidad={repr(self.localidad)}, latitud={self.latitud}, "
-                f"longitud={self.longitud})")
+class DataManagerDireccion:
+    def __init__(self) -> None:
+        self.db_direcciones = ClaseDireccion()
+        
+    def mostrar_datos(self):
+        data_direcciones = self.db_direcciones.obtener_datos()
+        return data_direcciones
+    
+    def agregar_registro(self):
+        with st.container(border=True):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                calle = st.text_input("Calle")
+                numero = st.text_input("Número")
+                piso = st.text_input("Piso")
+                departamento = st.text_input("Departamento")
+                localidad = st.text_input("Localidad")
+                latitud = st.text_input("Latitud")
+                longitud = st.text_input("Longitud")
+            
+            if st.button("Agregar Dirección"):
+                try:
+                    self.db_direcciones.ingresar_datos(calle, numero, piso, departamento, localidad, latitud, longitud)
+                    st.success('Dirección agregada correctamente.')
+                except Exception as e:
+                    st.error(f'Error al agregar dirección: {e}')
+    
+    def editar_registro(self, id):
+        with st.container(border=True):
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                calle = st.text_input("Calle")
+                numero = st.text_input("Número")
+                piso = st.text_input("Piso")
+                departamento = st.text_input("Departamento")
+                localidad = st.text_input("Localidad")
+                latitud = st.text_input("Latitud")
+                longitud = st.text_input("Longitud")
+            
+            if st.button("Actualizar Dirección"):
+                try:
+                    self.db_direcciones.actualizar_datos(id, calle, numero, piso, departamento, localidad, latitud, longitud)
+                    st.success('Dirección actualizada correctamente.')
+                except Exception as e:
+                    st.error(f'Error al actualizar dirección: {e}')
+    
+    def eliminar_registro(self):
+        data_direcciones = pd.DataFrame(self.db_direcciones.obtener_datos())
+        selected_id = st.selectbox("Seleccionar dirección para eliminar:", data_direcciones['id_direccion'].tolist())
+        
+        if st.button("Eliminar Dirección"):
+            try:
+                self.db_direcciones.cursor.execute('DELETE FROM direccion WHERE id_direccion = %s', (selected_id,))
+                self.db_direcciones.connection.commit()
+                st.success('Dirección eliminada correctamente.')
+            except Exception as e:
+                st.error(f'Error al eliminar dirección: {e}')
 
                 
